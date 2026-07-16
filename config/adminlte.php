@@ -305,6 +305,17 @@ return [
             'icon' => 'fas fa-fw fa-tachometer-alt',
         ],
         [
+            'text' => 'Master Data',
+            'icon' => 'fas fa-fw fa-database',
+            'submenu' => [
+                [
+                    'text' => 'Departemen',
+                    'route' => 'admin.master-data.departments.index',
+                    'icon' => 'fas fa-fw fa-sitemap',
+                ],
+            ],
+        ],
+        [
             'text' => 'Karyawan',
             'route' => 'admin.karyawan.index',
             'icon' => 'fas fa-fw fa-users',

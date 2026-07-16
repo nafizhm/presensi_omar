@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\LocationPointController;
 use App\Http\Controllers\Admin\AttendanceLogController;
 use App\Http\Controllers\Admin\ShiftController;
 use App\Http\Controllers\Admin\EmployeeScheduleController;
+use App\Http\Controllers\Admin\DepartmentController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -40,6 +41,9 @@ Route::middleware(['auth', 'role:karyawan'])->prefix('presensi')->name('presensi
     Route::post('/checkout', [PresensiController::class, 'checkout'])->name('checkout');
     Route::get('/riwayat', [PresensiController::class, 'riwayat'])->name('riwayat');
     Route::get('/profil', [PresensiController::class, 'profil'])->name('profil');
+    Route::patch('/profil', [PresensiController::class, 'updateProfil'])->name('profil.update');
+    Route::post('/profil/foto', [PresensiController::class, 'updateProfilePhoto'])->name('profil.photo.update');
+    Route::post('/profil/titik-lokasi', [PresensiController::class, 'storeLocationPoint'])->name('profil.locations.store');
 });
 
 Route::prefix('admin')->name('admin.')->group(function () {
@@ -65,6 +69,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::resource('karyawan', EmployeeController::class)
             ->only(['index', 'store', 'update', 'destroy'])
             ->parameters(['karyawan' => 'employee']);
+        Route::resource('master-data/departemen', DepartmentController::class)
+            ->only(['index', 'store', 'update', 'destroy'])
+            ->names('master-data.departments')
+            ->parameters(['departemen' => 'department']);
         Route::get('/pengaturan/profile', [CompanyProfileController::class, 'edit'])
             ->name('settings.profile.edit');
         Route::put('/pengaturan/profile', [CompanyProfileController::class, 'update'])

@@ -10,10 +10,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
-    'employee_code', 'username', 'name', 'email', 'password', 'role', 'shift_id', 'gender', 'phone',
-    'address', 'status', 'photo', 'email_verified_at',
+    'employee_code', 'username', 'name', 'email', 'password', 'role', 'shift_id', 'department_id', 'gender', 'phone',
+    'address', 'status', 'can_manage_location_points', 'photo', 'email_verified_at',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
@@ -36,6 +37,11 @@ class User extends Authenticatable
         return $this->belongsTo(Shift::class);
     }
 
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
+    }
+
     public function employeeSchedules(): HasMany
     {
         return $this->hasMany(EmployeeSchedule::class);
@@ -51,6 +57,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'can_manage_location_points' => 'boolean',
         ];
     }
 }

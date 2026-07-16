@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Shift;
+use App\Models\Department;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -16,8 +17,9 @@ class EmployeeController extends Controller
     public function index(): View
     {
         return view('admin.karyawan.index', [
-            'employees' => User::with('shift')->where('role', 'karyawan')->latest()->get(),
+            'employees' => User::with(['shift', 'department'])->where('role', 'karyawan')->latest()->get(),
             'shifts' => Shift::orderBy('name')->get(),
+            'departments' => Department::orderBy('name')->get(),
         ]);
     }
 
@@ -99,7 +101,9 @@ class EmployeeController extends Controller
             ],
             'password' => [$employee ? 'nullable' : 'required', 'string', 'min:8'],
             'status' => ['required', Rule::in(['aktif', 'nonaktif'])],
+            'can_manage_location_points' => ['nullable', 'boolean'],
             'shift_id' => ['nullable', 'exists:shifts,id'],
+            'department_id' => ['required', 'exists:departments,id'],
             'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ];
     }

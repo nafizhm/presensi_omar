@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Models\User;
 use App\Models\Shift;
+use App\Models\Department;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -15,6 +16,7 @@ class EmployeeManagementTest extends TestCase
     {
         $admin = User::factory()->create(['role' => 'admin']);
         $shift = Shift::create(['name' => 'Shift Pagi', 'status' => 'aktif']);
+        $department = Department::create(['name' => 'Operasional', 'description' => 'Tim lapangan']);
 
         $this->actingAs($admin)->post(route('admin.karyawan.store'), [
             'employee_code' => 'kry100',
@@ -25,7 +27,9 @@ class EmployeeManagementTest extends TestCase
             'email' => 'budi@example.com',
             'password' => 'password123',
             'shift_id' => $shift->id,
+            'department_id' => $department->id,
             'status' => 'aktif',
+            'can_manage_location_points' => '1',
         ])->assertSessionHas('success');
 
         $employee = User::where('employee_code', 'KRY100')->firstOrFail();
@@ -39,7 +43,9 @@ class EmployeeManagementTest extends TestCase
             'email' => 'budi@example.com',
             'password' => '',
             'shift_id' => $shift->id,
+            'department_id' => $department->id,
             'status' => 'nonaktif',
+            'can_manage_location_points' => '1',
         ])->assertSessionHas('success');
 
         $this->assertDatabaseHas('users', [
@@ -47,6 +53,8 @@ class EmployeeManagementTest extends TestCase
             'name' => 'Budi Diperbarui',
             'status' => 'nonaktif',
             'shift_id' => $shift->id,
+            'department_id' => $department->id,
+            'can_manage_location_points' => true,
         ]);
 
         $this->actingAs($admin)

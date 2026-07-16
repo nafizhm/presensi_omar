@@ -36,6 +36,13 @@ class AttendanceLogTest extends TestCase
                 'user_id' => $todayEmployee->id,
                 'tanggal' => '2026-07-16',
                 'jam_masuk' => '08:00',
+                'jam_pulang' => '17:00',
+                'lokasi_masuk_lat' => '-2.5000000',
+                'lokasi_masuk_lng' => '140.7000000',
+                'lokasi_pulang_lat' => '-2.5100000',
+                'lokasi_pulang_lng' => '140.7100000',
+                'foto_masuk' => 'presensi/masuk/test.jpg',
+                'foto_pulang' => 'presensi/pulang/test.jpg',
                 'status' => 'tepat_waktu',
             ]);
             Presensi::create([
@@ -52,6 +59,10 @@ class AttendanceLogTest extends TestCase
                 ->assertSee('value="2026-07-16"', escape: false)
                 ->assertSee('Zona waktu WIT')
                 ->assertSee('Karyawan Hari Ini')
+                ->assertSee('data-type="Jam Masuk"', escape: false)
+                ->assertSee('data-type="Jam Pulang"', escape: false)
+                ->assertSee('data-lat="-2.5"', escape: false)
+                ->assertSee('presensi/masuk/test.jpg')
                 ->assertDontSee('Karyawan Kemarin');
         } finally {
             Carbon::setTestNow();

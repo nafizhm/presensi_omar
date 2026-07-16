@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 use App\Services\AttendanceScheduleService;
+use Illuminate\Validation\Rule;
 
 class PresensiController extends Controller
 {
@@ -204,6 +205,62 @@ class PresensiController extends Controller
             'inisial' => $this->inisial($user->name ?? ''),
             'radiusMeter' => $this->radiusMeter,
         ]);
+    }
+
+    public function updateProfil(Request $request)
+    {
+        $user = $request->user();
+        $validated = $request->validate([
+            'phone' => ['required', 'string', 'max:30'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user)],
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        if (blank($validated['password'] ?? null)) {
+            unset($validated['password']);
+        }
+
+        $user->update($validated);
+
+        return back()->with('success', 'Data profil berhasil diperbarui.');
+    }
+
+    public function updateProfilePhoto(Request $request)
+    {
+        $validated = $request->validate([
+            'photo' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+        ]);
+        $user = $request->user();
+
+        if ($user->photo) {
+            Storage::disk('public')->delete($user->photo);
+        }
+
+        $user->update([
+            'photo' => $request->file('photo')->store('karyawan', 'public'),
+        ]);
+
+        return back()->with('success', 'Foto profil berhasil diperbarui.');
+    }
+
+    public function storeLocationPoint(Request $request)
+    {
+        abort_unless($request->user()->can_manage_location_points, 403);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
+            'radius_meters' => ['required', 'integer', 'min:1', 'max:100000'],
+            'timezone' => ['required', Rule::in(['Asia/Jakarta', 'Asia/Makassar', 'Asia/Jayapura'])],
+        ]);
+
+        LocationPoint::create($validated + [
+            'marked_by_user_id' => $request->user()->id,
+            'status' => 'aktif',
+        ]);
+
+        return back()->with('success', 'Titik lokasi berhasil ditambahkan.');
     }
 
     /** Jarak antara dua koordinat GPS dalam meter (formula Haversine) */

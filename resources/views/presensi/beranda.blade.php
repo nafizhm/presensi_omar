@@ -7,9 +7,11 @@
         <div class="text-[13px] text-ink-soft">{{ $sapaan ?? 'Selamat pagi' }}</div>
         <div class="font-display text-[21px] font-semibold text-ink">{{ $user->name ?? 'Dinda Pratiwi' }}</div>
     </div>
-    <div class="w-11 h-11 rounded-full bg-teal-dark text-white font-display flex items-center justify-center text-[15px] font-semibold">
-        {{ $inisial ?? 'DP' }}
-    </div>
+    @if ($user->photo)
+        <img src="{{ asset('storage/'.$user->photo) }}" alt="Foto {{ $user->name }}" class="w-11 h-11 rounded-full object-cover border border-line">
+    @else
+        <div class="w-11 h-11 rounded-full bg-teal-dark text-white font-display flex items-center justify-center text-[15px] font-semibold">{{ $inisial ?? 'DP' }}</div>
+    @endif
 </div>
 <div class="px-5 text-[13px] text-ink-soft mb-4">{{ $localNow->translatedFormat('l, d F Y') }}</div>
 

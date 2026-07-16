@@ -28,8 +28,10 @@
                         <th>Jenis Kelamin</th>
                         <th>No. Telepon</th>
                         <th>Email</th>
+                        <th>Departemen</th>
                         <th>Shift</th>
                         <th>Status</th>
+                        <th>Izin Titik Lokasi</th>
                         <th width="110">Aksi</th>
                     </tr>
                     </thead>
@@ -52,12 +54,14 @@
                             <td>{{ ucfirst($employee->gender) }}</td>
                             <td>{{ $employee->phone }}</td>
                             <td>{{ $employee->email }}</td>
+                            <td>{{ $employee->department?->name ?? '-' }}</td>
                             <td>{{ $employee->shift?->name ?? 'Jadwal default' }}</td>
                             <td>
                                 <span class="badge {{ $employee->status === 'aktif' ? 'badge-success' : 'badge-secondary' }}">
                                     {{ ucfirst($employee->status) }}
                                 </span>
                             </td>
+                            <td><span class="badge {{ $employee->can_manage_location_points ? 'badge-info' : 'badge-light' }}">{{ $employee->can_manage_location_points ? 'Diizinkan' : 'Tidak' }}</span></td>
                             <td>
                                 <button type="button" class="btn btn-sm btn-warning edit-employee"
                                         title="Edit"
@@ -68,8 +72,10 @@
                                         data-phone="{{ $employee->phone }}"
                                         data-address="{{ $employee->address }}"
                                         data-email="{{ $employee->email }}"
+                                        data-department="{{ $employee->department_id }}"
                                         data-shift="{{ $employee->shift_id }}"
-                                        data-status="{{ $employee->status }}">
+                                        data-status="{{ $employee->status }}"
+                                        data-location-permission="{{ $employee->can_manage_location_points ? 1 : 0 }}">
                                     <i class="fas fa-edit"></i>
                                 </button>
                                 <form action="{{ route('admin.karyawan.destroy', $employee) }}" method="POST" class="d-inline"
@@ -135,6 +141,15 @@
                             <small class="text-muted">Minimal 8 karakter.</small>
                         </div>
                         <div class="form-group col-md-6">
+                            <label>Departemen <span class="text-danger">*</span></label>
+                            <select name="department_id" class="form-control" required>
+                                <option value="">Pilih departemen</option>
+                                @foreach ($departments as $department)
+                                    <option value="{{ $department->id }}" @selected(old('_form_mode') === 'add' && (string) old('department_id') === (string) $department->id)>{{ $department->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="form-group col-md-6">
                             <label>Shift</label>
                             <select name="shift_id" class="form-control">
                                 <option value="">Jadwal default (08:00–12:00–17:00)</option>
@@ -151,6 +166,14 @@
                                 <option value="aktif" @selected(old('status', 'aktif') === 'aktif')>Aktif</option>
                                 <option value="nonaktif" @selected(old('_form_mode') === 'add' && old('status') === 'nonaktif')>Nonaktif</option>
                             </select>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label>Izin Menambahkan Titik Lokasi</label>
+                            <select name="can_manage_location_points" class="form-control">
+                                <option value="0" @selected(old('_form_mode') === 'add' && old('can_manage_location_points', '0') === '0')>Tidak diizinkan</option>
+                                <option value="1" @selected(old('_form_mode') === 'add' && old('can_manage_location_points') === '1')>Diizinkan</option>
+                            </select>
+                            <small class="text-muted">Jika diizinkan, menu pengaturan titik lokasi akan muncul di profil karyawan.</small>
                         </div>
                         <div class="form-group col-md-6">
                             <label>Upload Foto</label>
@@ -219,6 +242,13 @@
                             <small class="text-muted">Kosongkan jika tidak ingin mengganti password.</small>
                         </div>
                         <div class="form-group col-md-6">
+                            <label>Departemen <span class="text-danger">*</span></label>
+                            <select id="edit-department" name="department_id" class="form-control" required>
+                                <option value="">Pilih departemen</option>
+                                @foreach ($departments as $department)<option value="{{ $department->id }}">{{ $department->name }}</option>@endforeach
+                            </select>
+                        </div>
+                        <div class="form-group col-md-6">
                             <label>Shift</label>
                             <select id="edit-shift" name="shift_id" class="form-control">
                                 <option value="">Jadwal default (08:00–12:00–17:00)</option>
@@ -233,6 +263,13 @@
                                 <option value="aktif">Aktif</option>
                                 <option value="nonaktif">Nonaktif</option>
                             </select>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label>Izin Menambahkan Titik Lokasi</label>
+                            <select id="edit-location-permission" name="can_manage_location_points" class="form-control">
+                                <option value="0">Tidak diizinkan</option><option value="1">Diizinkan</option>
+                            </select>
+                            <small class="text-muted">Mengatur akses menu titik lokasi pada profil karyawan.</small>
                         </div>
                         <div class="form-group col-md-6">
                             <label>Ganti Foto</label>
@@ -297,8 +334,10 @@ $(function () {
         $('#edit-phone').val(button.attr('data-phone'));
         $('#edit-address').val(button.attr('data-address'));
         $('#edit-email').val(button.attr('data-email'));
+        $('#edit-department').val(button.attr('data-department'));
         $('#edit-shift').val(button.attr('data-shift'));
         $('#edit-status').val(button.attr('data-status'));
+        $('#edit-location-permission').val(button.attr('data-location-permission'));
         setEditAction(button.data('id'));
         $('#editEmployeeModal').modal('show');
     });
@@ -317,6 +356,8 @@ $(function () {
         $('#edit-gender').val(@js(old('gender')));
         $('#edit-status').val(@js(old('status')));
         $('#edit-shift').val(@js(old('shift_id')));
+        $('#edit-department').val(@js(old('department_id')));
+        $('#edit-location-permission').val(@js(old('can_manage_location_points', '0')));
         $('#editEmployeeModal').modal('show');
     @endif
 

@@ -8,11 +8,11 @@
 </div>
 
 <div class="px-5 flex items-center gap-2 mb-3 overflow-x-auto">
-    @foreach (['Semua', 'Tepat waktu', 'Telat', 'Izin', 'Absen'] as $i => $filter)
-        <span class="text-[12px] font-medium px-3 py-1.5 rounded-full whitespace-nowrap border
-            {{ $i === 0 ? 'bg-ink text-white border-ink' : 'bg-white text-ink-soft border-line' }}">
+    @foreach (['semua' => 'Semua', 'tepat_waktu' => 'Tepat waktu', 'telat' => 'Telat', 'izin' => 'Izin', 'absen' => 'Absen'] as $value => $filter)
+        <button type="button" data-history-filter="{{ $value }}" class="history-filter text-[12px] font-medium px-3 py-1.5 rounded-full whitespace-nowrap border
+            {{ $loop->first ? 'bg-ink text-white border-ink' : 'bg-white text-ink-soft border-line' }}">
             {{ $filter }}
-        </span>
+        </button>
     @endforeach
 </div>
 
@@ -28,7 +28,7 @@
             $date = \Carbon\Carbon::parse($record->tanggal);
         @endphp
 
-        <details class="rounded-2xl mb-3 p-4 bg-white border border-line cursor-pointer">
+        <details data-history-item data-status="{{ $record->status }}" class="rounded-2xl mb-3 p-4 bg-white border border-line cursor-pointer">
             <summary class="list-none" style="list-style:none">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">
@@ -56,5 +56,28 @@
             Belum ada riwayat pada periode ini.
         </div>
     @endforelse
+    <div id="filteredHistoryEmpty" class="hidden rounded-2xl p-6 text-center bg-white border border-line text-[13px] text-ink-soft">Tidak ada riwayat dengan status ini.</div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const filters = document.querySelectorAll('[data-history-filter]');
+    const items = document.querySelectorAll('[data-history-item]');
+    const empty = document.getElementById('filteredHistoryEmpty');
+
+    filters.forEach(button => button.addEventListener('click', function () {
+        const selected = this.dataset.historyFilter;
+        let visible = 0;
+        filters.forEach(filter => {
+            const active = filter === this;
+            filter.classList.toggle('bg-ink', active); filter.classList.toggle('text-white', active); filter.classList.toggle('border-ink', active);
+            filter.classList.toggle('bg-white', !active); filter.classList.toggle('text-ink-soft', !active); filter.classList.toggle('border-line', !active);
+        });
+        items.forEach(item => { const show = selected === 'semua' || item.dataset.status === selected; item.classList.toggle('hidden', !show); if (show) visible++; });
+        if (empty) empty.classList.toggle('hidden', visible > 0);
+    }));
+});
+</script>
+@endpush
