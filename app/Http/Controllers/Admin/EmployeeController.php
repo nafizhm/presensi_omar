@@ -11,9 +11,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use App\Services\ImageCompressionService;
 
 class EmployeeController extends Controller
 {
+    public function __construct(private readonly ImageCompressionService $imageCompression)
+    {
+    }
+
     public function index(): View
     {
         return view('admin.karyawan.index', [
@@ -35,7 +40,7 @@ class EmployeeController extends Controller
         $validated['email_verified_at'] = now();
 
         if ($request->hasFile('photo')) {
-            $validated['photo'] = $request->file('photo')->store('karyawan', 'public');
+            $validated['photo'] = $this->imageCompression->store($request->file('photo'), 'karyawan', 800, 75);
         }
 
         User::create($validated);
@@ -58,15 +63,17 @@ class EmployeeController extends Controller
             unset($validated['password']);
         }
 
+        $oldPhoto = null;
         if ($request->hasFile('photo')) {
-            if ($employee->photo) {
-                Storage::disk('public')->delete($employee->photo);
-            }
-
-            $validated['photo'] = $request->file('photo')->store('karyawan', 'public');
+            $oldPhoto = $employee->photo;
+            $validated['photo'] = $this->imageCompression->store($request->file('photo'), 'karyawan', 800, 75);
         }
 
         $employee->update($validated);
+
+        if ($oldPhoto && $oldPhoto !== $employee->photo) {
+            Storage::disk('public')->delete($oldPhoto);
+        }
 
         return back()->with('success', 'Data karyawan berhasil diperbarui.');
     }
@@ -104,7 +111,7 @@ class EmployeeController extends Controller
             'can_manage_location_points' => ['nullable', 'boolean'],
             'shift_id' => ['nullable', 'exists:shifts,id'],
             'department_id' => ['required', 'exists:departments,id'],
-            'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
         ];
     }
 

@@ -9,11 +9,15 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 use App\Services\AttendanceScheduleService;
+use App\Services\ImageCompressionService;
 use Illuminate\Validation\Rule;
 
 class PresensiController extends Controller
 {
-    public function __construct(private readonly AttendanceScheduleService $scheduleService)
+    public function __construct(
+        private readonly AttendanceScheduleService $scheduleService,
+        private readonly ImageCompressionService $imageCompression,
+    )
     {
     }
 
@@ -93,7 +97,7 @@ class PresensiController extends Controller
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
             'accuracy' => 'nullable|numeric',
-            'foto' => 'nullable|image|max:4096',
+            'foto' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
         ]);
 
         $office = $this->officeLocation();
@@ -118,7 +122,13 @@ class PresensiController extends Controller
 
         $fotoPath = null;
         if ($request->hasFile('foto')) {
-            $fotoPath = $request->file('foto')->store('presensi/masuk', 'public');
+            $fotoPath = $this->imageCompression->store($request->file('foto'), 'presensi/masuk', 1280, 72);
+        }
+
+        $existingAttendance = Presensi::where('user_id', $user->id)
+            ->whereDate('tanggal', $schedule['attendance_date'])->first();
+        if ($fotoPath && $existingAttendance?->foto_masuk && $existingAttendance->foto_masuk !== $fotoPath) {
+            Storage::disk('public')->delete($existingAttendance->foto_masuk);
         }
 
         Presensi::updateOrCreate(
@@ -127,7 +137,7 @@ class PresensiController extends Controller
                 'jam_masuk' => $now->format('H:i'),
                 'lokasi_masuk_lat' => $request->input('latitude'),
                 'lokasi_masuk_lng' => $request->input('longitude'),
-                'foto_masuk' => $fotoPath,
+                'foto_masuk' => $fotoPath ?? $existingAttendance?->foto_masuk,
                 'status' => $status,
                 'shift_name' => $schedule['shift_name'],
                 'keterangan' => $attendanceNote,
@@ -146,7 +156,7 @@ class PresensiController extends Controller
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
             'accuracy' => 'nullable|numeric',
-            'foto' => 'nullable|image|max:4096',
+            'foto' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
         ]);
 
         $user = Auth::user();
@@ -155,7 +165,7 @@ class PresensiController extends Controller
         $schedule = $this->scheduleService->resolve($user, $now);
         $fotoPath = null;
         if ($request->hasFile('foto')) {
-            $fotoPath = $request->file('foto')->store('presensi/pulang', 'public');
+            $fotoPath = $this->imageCompression->store($request->file('foto'), 'presensi/pulang', 1280, 72);
         }
 
         $presensi = Presensi::where('user_id', $user->id)
@@ -164,6 +174,9 @@ class PresensiController extends Controller
                 'user_id' => $user->id,
                 'tanggal' => $schedule['attendance_date'],
             ]);
+        if ($fotoPath && $presensi->foto_pulang && $presensi->foto_pulang !== $fotoPath) {
+            Storage::disk('public')->delete($presensi->foto_pulang);
+        }
         $checkoutNote = $now->lt($schedule['end'])
             ? 'Pulang terlalu cepat'
             : 'Pulang sesuai jadwal';
@@ -176,7 +189,7 @@ class PresensiController extends Controller
                 'jam_pulang' => $now->format('H:i'),
                 'lokasi_pulang_lat' => $request->input('latitude'),
                 'lokasi_pulang_lng' => $request->input('longitude'),
-                'foto_pulang' => $fotoPath,
+                'foto_pulang' => $fotoPath ?? $presensi->foto_pulang,
                 'status' => $presensi->exists ? $presensi->status : 'absen',
                 'shift_name' => $presensi->shift_name ?: $schedule['shift_name'],
                 'keterangan' => $existingNote ? $existingNote.'; '.$checkoutNote : $checkoutNote,
@@ -228,17 +241,17 @@ class PresensiController extends Controller
     public function updateProfilePhoto(Request $request)
     {
         $validated = $request->validate([
-            'photo' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'photo' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
         ]);
         $user = $request->user();
 
-        if ($user->photo) {
-            Storage::disk('public')->delete($user->photo);
-        }
+        $oldPhoto = $user->photo;
+        $newPhoto = $this->imageCompression->store($request->file('photo'), 'karyawan', 800, 75);
+        $user->update(['photo' => $newPhoto]);
 
-        $user->update([
-            'photo' => $request->file('photo')->store('karyawan', 'public'),
-        ]);
+        if ($oldPhoto && $oldPhoto !== $newPhoto) {
+            Storage::disk('public')->delete($oldPhoto);
+        }
 
         return back()->with('success', 'Foto profil berhasil diperbarui.');
     }

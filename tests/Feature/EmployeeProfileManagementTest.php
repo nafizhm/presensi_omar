@@ -68,12 +68,15 @@ class EmployeeProfileManagementTest extends TestCase
         $employee = User::factory()->create(['role' => 'karyawan']);
 
         $this->actingAs($employee)->post(route('presensi.profil.photo.update'), [
-            'photo' => UploadedFile::fake()->image('kamera.jpg'),
+            'photo' => UploadedFile::fake()->image('kamera.jpg', 1600, 1200),
         ])->assertSessionHas('success');
 
         $employee->refresh();
         $this->assertNotNull($employee->photo);
         Storage::disk('public')->assertExists($employee->photo);
+        [$width, $height] = getimagesize(Storage::disk('public')->path($employee->photo));
+        $this->assertLessThanOrEqual(800, max($width, $height));
+        $this->assertContains(pathinfo($employee->photo, PATHINFO_EXTENSION), ['webp', 'jpg']);
 
         $this->actingAs($employee)->get(route('presensi.profil'))
             ->assertOk()
