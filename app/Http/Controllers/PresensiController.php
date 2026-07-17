@@ -94,22 +94,26 @@ class PresensiController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'latitude' => 'nullable|numeric',
-            'longitude' => 'nullable|numeric',
+            'latitude' => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
             'accuracy' => 'nullable|numeric',
             'foto' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
         ]);
 
         $office = $this->officeLocation();
-        $hasCoordinates = $request->input('latitude') !== null && $request->input('longitude') !== null;
-        $distance = $hasCoordinates
-            ? $this->haversine(
-                $request->input('latitude'),
-                $request->input('longitude'),
-                $office['latitude'],
-                $office['longitude']
-            )
-            : null;
+        $distance = $this->haversine(
+            $request->input('latitude'),
+            $request->input('longitude'),
+            $office['latitude'],
+            $office['longitude']
+        );
+
+        if ($distance > $office['radius']) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kamu berada di luar radius presensi. Jarak dari lokasi absen sekitar '.round($distance).' meter.',
+            ], 422);
+        }
 
         $user = Auth::user();
         $now = Carbon::now($office['timezone']);
@@ -141,9 +145,7 @@ class PresensiController extends Controller
                 'status' => $status,
                 'shift_name' => $schedule['shift_name'],
                 'keterangan' => $attendanceNote,
-                'keterangan_lokasi' => $hasCoordinates
-                    ? $office['name'] . ' - ' . round($distance) . ' m'
-                    : null,
+                'keterangan_lokasi' => $office['name'] . ' - ' . round($distance) . ' m',
             ]
         );
 
@@ -153,14 +155,27 @@ class PresensiController extends Controller
     public function checkout(Request $request)
     {
         $request->validate([
-            'latitude' => 'nullable|numeric',
-            'longitude' => 'nullable|numeric',
+            'latitude' => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
             'accuracy' => 'nullable|numeric',
             'foto' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
         ]);
 
         $user = Auth::user();
         $office = $this->officeLocation();
+        $distance = $this->haversine(
+            $request->input('latitude'),
+            $request->input('longitude'),
+            $office['latitude'],
+            $office['longitude']
+        );
+
+        if ($distance > $office['radius']) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kamu berada di luar radius presensi. Jarak dari lokasi absen sekitar '.round($distance).' meter.',
+            ], 422);
+        }
         $now = Carbon::now($office['timezone']);
         $schedule = $this->scheduleService->resolve($user, $now);
         $fotoPath = null;

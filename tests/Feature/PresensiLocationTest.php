@@ -44,7 +44,7 @@ class PresensiLocationTest extends TestCase
             ->assertDontSee('<button id="submitAttendanceButton" type="submit" disabled', escape: false);
     }
 
-    public function test_checkin_from_any_location_is_always_allowed(): void
+    public function test_checkin_outside_radius_is_rejected(): void
     {
         Storage::fake('public');
         $employee = User::factory()->create();
@@ -54,19 +54,12 @@ class PresensiLocationTest extends TestCase
             'longitude' => 0,
             'accuracy' => 10,
             'foto' => UploadedFile::fake()->image('swafoto.jpg', 480, 640),
-        ], ['Accept' => 'application/json'])->assertOk()->assertJson(['success' => true]);
+        ], ['Accept' => 'application/json'])->assertUnprocessable()->assertJson(['success' => false]);
 
-        $this->assertDatabaseHas('presensis', [
-            'user_id' => $employee->id,
-            'lokasi_masuk_lat' => 0,
-            'lokasi_masuk_lng' => 0,
-        ]);
-
-        $presensi = $employee->presensis()->first();
-        Storage::disk('public')->assertExists($presensi->foto_masuk);
+        $this->assertDatabaseMissing('presensis', ['user_id' => $employee->id]);
     }
 
-    public function test_checkout_from_any_location_is_always_allowed(): void
+    public function test_checkout_outside_radius_is_rejected(): void
     {
         $employee = User::factory()->create();
         $presensi = Presensi::create([
@@ -80,31 +73,22 @@ class PresensiLocationTest extends TestCase
             'latitude' => 0,
             'longitude' => 0,
             'accuracy' => 10,
-        ])->assertOk()->assertJson(['success' => true]);
+        ])->assertUnprocessable()->assertJson(['success' => false]);
 
-        $this->assertNotNull($presensi->fresh()->jam_pulang);
-        $this->assertEquals(0, $presensi->fresh()->lokasi_pulang_lat);
-        $this->assertEquals(0, $presensi->fresh()->lokasi_pulang_lng);
+        $this->assertNull($presensi->fresh()->jam_pulang);
     }
 
-    public function test_checkin_without_location_or_photo_is_allowed(): void
+    public function test_checkin_without_location_is_rejected(): void
     {
         $employee = User::factory()->create();
 
-        $this->actingAs($employee)
-            ->postJson(route('presensi.store'), [])
-            ->assertOk()
-            ->assertJson(['success' => true]);
+        $response = $this->actingAs($employee)->postJson(route('presensi.store'), []);
+        $this->assertSame(302, $response->getStatusCode());
 
-        $presensi = $employee->presensis()->firstOrFail();
-        $this->assertTrue($presensi->tanggal->isToday());
-        $this->assertNotNull($presensi->jam_masuk);
-        $this->assertNull($presensi->lokasi_masuk_lat);
-        $this->assertNull($presensi->lokasi_masuk_lng);
-        $this->assertNull($presensi->foto_masuk);
+        $this->assertDatabaseMissing('presensis', ['user_id' => $employee->id]);
     }
 
-    public function test_checkout_without_location_or_photo_is_allowed(): void
+    public function test_checkout_without_location_is_rejected(): void
     {
         $employee = User::factory()->create();
         $presensi = Presensi::create([
@@ -114,13 +98,11 @@ class PresensiLocationTest extends TestCase
             'status' => 'tepat_waktu',
         ]);
 
-        $this->actingAs($employee)
-            ->postJson(route('presensi.checkout'), [])
-            ->assertOk()
-            ->assertJson(['success' => true]);
+        $response = $this->actingAs($employee)->postJson(route('presensi.checkout'), []);
+        $this->assertSame(302, $response->getStatusCode());
 
         $presensi->refresh();
-        $this->assertNotNull($presensi->jam_pulang);
+        $this->assertNull($presensi->jam_pulang);
         $this->assertNull($presensi->lokasi_pulang_lat);
         $this->assertNull($presensi->lokasi_pulang_lng);
     }
@@ -143,7 +125,10 @@ class PresensiLocationTest extends TestCase
             ]);
 
             $this->actingAs($employee)
-                ->postJson(route('presensi.store'), [])
+                ->postJson(route('presensi.store'), [
+                    'latitude' => -2.5,
+                    'longitude' => 140.7,
+                ])
                 ->assertOk();
 
             $presensi = $employee->presensis()->firstOrFail();

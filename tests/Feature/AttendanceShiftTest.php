@@ -29,7 +29,7 @@ class AttendanceShiftTest extends TestCase
                 ->assertSee('Simpan Absen Masuk')
                 ->assertSee('Shift Pagi');
 
-            $this->actingAs($employee)->postJson(route('presensi.store'), [])->assertOk();
+            $this->actingAs($employee)->postJson(route('presensi.store'), $this->locationPayload())->assertOk();
             $presensi = $employee->presensis()->firstOrFail();
             $this->assertSame('08:30', $presensi->jam_masuk);
             $this->assertSame('telat', $presensi->status);
@@ -42,7 +42,7 @@ class AttendanceShiftTest extends TestCase
                 ->assertOk()
                 ->assertSee('Simpan Absen Pulang');
 
-            $this->actingAs($employee)->postJson(route('presensi.checkout'), [])->assertOk();
+            $this->actingAs($employee)->postJson(route('presensi.checkout'), $this->locationPayload())->assertOk();
             $presensi->refresh();
             $this->assertSame('15:00', $presensi->jam_pulang);
             $this->assertStringContainsString('Pulang terlalu cepat', $presensi->keterangan);
@@ -64,7 +64,7 @@ class AttendanceShiftTest extends TestCase
                 ->get(route('presensi.checkin'))
                 ->assertOk()
                 ->assertSee('Simpan Absen Masuk');
-            $this->actingAs($employee)->postJson(route('presensi.store'), [])->assertOk();
+            $this->actingAs($employee)->postJson(route('presensi.store'), $this->locationPayload())->assertOk();
 
             $presensi = $employee->presensis()->firstOrFail();
             $this->assertSame('2026-07-20', $presensi->tanggal->toDateString());
@@ -75,7 +75,7 @@ class AttendanceShiftTest extends TestCase
                 ->get(route('presensi.checkin'))
                 ->assertOk()
                 ->assertSee('Simpan Absen Pulang');
-            $this->actingAs($employee)->postJson(route('presensi.checkout'), [])->assertOk();
+            $this->actingAs($employee)->postJson(route('presensi.checkout'), $this->locationPayload())->assertOk();
 
             $presensi->refresh();
             $this->assertSame('02:00', $presensi->jam_pulang);
@@ -106,7 +106,7 @@ class AttendanceShiftTest extends TestCase
                 ->assertSee('Shift Khusus')
                 ->assertSee('Simpan Absen Masuk');
 
-            $this->actingAs($employee)->postJson(route('presensi.store'), [])->assertOk();
+            $this->actingAs($employee)->postJson(route('presensi.store'), $this->locationPayload())->assertOk();
 
             $presensi = $employee->presensis()->firstOrFail();
             $this->assertSame('Shift Khusus', $presensi->shift_name);
@@ -128,6 +128,11 @@ class AttendanceShiftTest extends TestCase
             'marked_by_user_id' => $admin->id,
             'status' => 'aktif',
         ]);
+    }
+
+    private function locationPayload(): array
+    {
+        return ['latitude' => -6.2, 'longitude' => 106.8, 'accuracy' => 10];
     }
 
     private function createShift(string $name, int $day, string $start, string $middle, string $end): Shift

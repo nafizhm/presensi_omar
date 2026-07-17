@@ -44,13 +44,19 @@
                 <div id="statusDenied" class="hidden text-[13px] text-coral">
                     Lokasi tidak dapat dibaca. Aktifkan GPS dan berikan izin lokasi.
                 </div>
-                <div id="statusAny" class="hidden">
+                <div id="statusInside" class="hidden">
                     <div class="text-[14px] font-semibold text-teal-dark flex items-center justify-center gap-1.5">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 11 18-8-8 18-2-8-8-2Z"/></svg>
-                        Lokasi berhasil ditemukan
+                        Kamu berada di dalam radius presensi
                     </div>
                     <div class="text-[12px] text-ink-soft mt-1">
-                        Semua lokasi diizinkan · akurasi GPS <span id="accuracyText">0</span> m
+                        Akurasi GPS <span id="accuracyText">0</span> m · radius maksimal {{ $radiusMeter }} m
+                    </div>
+                </div>
+                <div id="statusOutside" class="hidden">
+                    <div class="text-[14px] font-semibold text-coral">Kamu berada di luar radius presensi</div>
+                    <div class="text-[12px] text-ink-soft mt-1">
+                        Jarak <span id="outsideDistanceText">0</span> m · maksimal {{ $radiusMeter }} m
                     </div>
                 </div>
             </div>
@@ -120,6 +126,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const settings = {
         officeLat: @js($officeLat ?? -6.200000),
         officeLng: @js($officeLng ?? 106.816666),
+        radiusMeter: @js($radiusMeter ?? 100),
         googleMapsApiKey: @js($googleMapsApiKey ?? ''),
         timezone: @js($timezone ?? 'Asia/Jakarta'),
         redirectUrl: @js(route('presensi.beranda')),
@@ -142,10 +149,12 @@ document.addEventListener('DOMContentLoaded', function () {
         submit: document.getElementById('submitAttendanceButton'),
         refresh: document.getElementById('refreshLocationButton'),
         accuracyText: document.getElementById('accuracyText'),
+        outsideDistanceText: document.getElementById('outsideDistanceText'),
         mapFrame: document.getElementById('googleMapFrame'),
     };
-    const statusElements = ['statusLoading', 'statusDenied', 'statusAny'];
+    const statusElements = ['statusLoading', 'statusDenied', 'statusInside', 'statusOutside'];
     let submitting = false;
+    let isInsideRadius = false;
     let previewUrl = '';
 
     function updateClock() {
@@ -166,11 +175,20 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function updateSubmitButton() {
-        elements.submit.disabled = submitting;
-        elements.submit.classList.toggle('bg-paper-alt', submitting);
-        elements.submit.classList.toggle('text-ink-soft', submitting);
-        elements.submit.classList.toggle('bg-teal-dark', !submitting);
-        elements.submit.classList.toggle('text-white', !submitting);
+        elements.submit.disabled = submitting || !isInsideRadius;
+        elements.submit.classList.toggle('bg-paper-alt', submitting || !isInsideRadius);
+        elements.submit.classList.toggle('text-ink-soft', submitting || !isInsideRadius);
+        elements.submit.classList.toggle('bg-teal-dark', !submitting && isInsideRadius);
+        elements.submit.classList.toggle('text-white', !submitting && isInsideRadius);
+    }
+
+    function distanceInMeters(lat1, lng1, lat2, lng2) {
+        const toRadians = value => value * Math.PI / 180;
+        const earthRadius = 6371000;
+        const dLat = toRadians(lat2 - lat1);
+        const dLng = toRadians(lng2 - lng1);
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLng / 2) ** 2;
+        return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     function updateGoogleMap(latitude, longitude) {
@@ -185,6 +203,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function refreshLocation() {
         showStatus('statusLoading');
+        isInsideRadius = false;
+        updateSubmitButton();
         if (!navigator.geolocation) {
             showStatus('statusDenied');
             return;
@@ -199,10 +219,15 @@ document.addEventListener('DOMContentLoaded', function () {
             elements.accuracy.value = accuracy;
             elements.accuracyText.textContent = Math.round(accuracy || 0);
             updateGoogleMap(latitude, longitude);
-            showStatus('statusAny');
+            const distance = distanceInMeters(latitude, longitude, settings.officeLat, settings.officeLng);
+            isInsideRadius = distance <= settings.radiusMeter;
+            elements.outsideDistanceText.textContent = Math.round(distance);
+            showStatus(isInsideRadius ? 'statusInside' : 'statusOutside');
             updateSubmitButton();
         }, function () {
+            isInsideRadius = false;
             showStatus('statusDenied');
+            updateSubmitButton();
         }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 });
     }
 
