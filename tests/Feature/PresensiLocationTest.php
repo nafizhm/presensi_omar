@@ -78,6 +78,48 @@ class PresensiLocationTest extends TestCase
         $this->assertNull($presensi->fresh()->jam_pulang);
     }
 
+    public function test_checkin_uses_radius_from_the_nearest_active_location(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $employee = User::factory()->create();
+
+        LocationPoint::create([
+            'name' => 'Kantor Lama',
+            'latitude' => -6.2,
+            'longitude' => 106.8,
+            'radius_meters' => 100,
+            'timezone' => 'Asia/Jakarta',
+            'marked_by_user_id' => $admin->id,
+            'status' => 'aktif',
+        ]);
+        LocationPoint::create([
+            'name' => 'Cabang Terdekat',
+            'latitude' => -6.21,
+            'longitude' => 106.81,
+            'radius_meters' => 275,
+            'timezone' => 'Asia/Jakarta',
+            'marked_by_user_id' => $admin->id,
+            'status' => 'aktif',
+        ]);
+
+        $this->actingAs($employee)->postJson(route('presensi.store'), [
+            'latitude' => -6.21,
+            'longitude' => 106.81,
+            'accuracy' => 10,
+        ])->assertOk()->assertJson(['success' => true]);
+
+        $this->assertStringStartsWith(
+            'Cabang Terdekat - ',
+            $employee->presensis()->firstOrFail()->keterangan_lokasi
+        );
+
+        $this->actingAs($employee)
+            ->get(route('presensi.checkin'))
+            ->assertOk()
+            ->assertSee('Cabang Terdekat')
+            ->assertSee('\\u0022radius\\u0022:275', escape: false);
+    }
+
     public function test_checkin_without_location_is_rejected(): void
     {
         $employee = User::factory()->create();

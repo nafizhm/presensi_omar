@@ -50,13 +50,13 @@
                         Kamu berada di dalam radius presensi
                     </div>
                     <div class="text-[12px] text-ink-soft mt-1">
-                        Akurasi GPS <span id="accuracyText">0</span> m · radius maksimal {{ $radiusMeter }} m
+                        Titik terdekat: <span id="nearestLocationName">{{ $namaKantor }}</span> · akurasi GPS <span id="accuracyText">0</span> m · radius <span id="insideRadiusText">{{ $radiusMeter }}</span> m
                     </div>
                 </div>
                 <div id="statusOutside" class="hidden">
                     <div class="text-[14px] font-semibold text-coral">Kamu berada di luar radius presensi</div>
                     <div class="text-[12px] text-ink-soft mt-1">
-                        Jarak <span id="outsideDistanceText">0</span> m · maksimal {{ $radiusMeter }} m
+                        Titik terdekat: <span id="outsideLocationName">{{ $namaKantor }}</span> · jarak <span id="outsideDistanceText">0</span> m · maksimal <span id="outsideRadiusText">{{ $radiusMeter }}</span> m
                     </div>
                 </div>
             </div>
@@ -127,6 +127,7 @@ document.addEventListener('DOMContentLoaded', function () {
         officeLat: @js($officeLat ?? -6.200000),
         officeLng: @js($officeLng ?? 106.816666),
         radiusMeter: @js($radiusMeter ?? 100),
+        locationPoints: @js($locationPoints ?? []),
         googleMapsApiKey: @js($googleMapsApiKey ?? ''),
         timezone: @js($timezone ?? 'Asia/Jakarta'),
         redirectUrl: @js(route('presensi.beranda')),
@@ -149,6 +150,10 @@ document.addEventListener('DOMContentLoaded', function () {
         submit: document.getElementById('submitAttendanceButton'),
         refresh: document.getElementById('refreshLocationButton'),
         accuracyText: document.getElementById('accuracyText'),
+        nearestLocationName: document.getElementById('nearestLocationName'),
+        insideRadiusText: document.getElementById('insideRadiusText'),
+        outsideLocationName: document.getElementById('outsideLocationName'),
+        outsideRadiusText: document.getElementById('outsideRadiusText'),
         outsideDistanceText: document.getElementById('outsideDistanceText'),
         mapFrame: document.getElementById('googleMapFrame'),
     };
@@ -219,8 +224,23 @@ document.addEventListener('DOMContentLoaded', function () {
             elements.accuracy.value = accuracy;
             elements.accuracyText.textContent = Math.round(accuracy || 0);
             updateGoogleMap(latitude, longitude);
-            const distance = distanceInMeters(latitude, longitude, settings.officeLat, settings.officeLng);
-            isInsideRadius = distance <= settings.radiusMeter;
+            const nearest = settings.locationPoints
+                .map(point => Object.assign({}, point, {
+                    distance: distanceInMeters(latitude, longitude, point.latitude, point.longitude),
+                }))
+                .sort((first, second) => first.distance - second.distance)[0] || {
+                    name: 'Lokasi absen',
+                    latitude: settings.officeLat,
+                    longitude: settings.officeLng,
+                    radius: settings.radiusMeter,
+                    distance: distanceInMeters(latitude, longitude, settings.officeLat, settings.officeLng),
+                };
+            const distance = nearest.distance;
+            isInsideRadius = distance <= nearest.radius;
+            elements.nearestLocationName.textContent = nearest.name;
+            elements.insideRadiusText.textContent = nearest.radius;
+            elements.outsideLocationName.textContent = nearest.name;
+            elements.outsideRadiusText.textContent = nearest.radius;
             elements.outsideDistanceText.textContent = Math.round(distance);
             showStatus(isInsideRadius ? 'statusInside' : 'statusOutside');
             updateSubmitButton();

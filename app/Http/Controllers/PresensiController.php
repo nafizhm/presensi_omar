@@ -88,6 +88,7 @@ class PresensiController extends Controller
             'mode' => $schedule['mode'],
             'schedule' => $schedule,
             'sudahMasuk' => $sudahMasuk,
+            'locationPoints' => $this->activeLocationPoints(),
         ]);
     }
 
@@ -100,7 +101,10 @@ class PresensiController extends Controller
             'foto' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
         ]);
 
-        $office = $this->officeLocation();
+        $office = $this->officeLocation(
+            (float) $request->input('latitude'),
+            (float) $request->input('longitude')
+        );
         $distance = $this->haversine(
             $request->input('latitude'),
             $request->input('longitude'),
@@ -162,7 +166,10 @@ class PresensiController extends Controller
         ]);
 
         $user = Auth::user();
-        $office = $this->officeLocation();
+        $office = $this->officeLocation(
+            (float) $request->input('latitude'),
+            (float) $request->input('longitude')
+        );
         $distance = $this->haversine(
             $request->input('latitude'),
             $request->input('longitude'),
@@ -319,9 +326,19 @@ class PresensiController extends Controller
         };
     }
 
-    private function officeLocation(): array
+    private function officeLocation(?float $latitude = null, ?float $longitude = null): array
     {
-        $location = LocationPoint::where('status', 'aktif')->oldest()->first();
+        $locations = LocationPoint::where('status', 'aktif')->oldest()->get();
+        $location = $locations->first();
+
+        if ($latitude !== null && $longitude !== null && $locations->isNotEmpty()) {
+            $location = $locations->sortBy(fn (LocationPoint $point) => $this->haversine(
+                $latitude,
+                $longitude,
+                (float) $point->latitude,
+                (float) $point->longitude
+            ))->first();
+        }
 
         return [
             'name' => $location?->name ?? $this->namaKantor,
@@ -335,5 +352,22 @@ class PresensiController extends Controller
                 default => 'WIB',
             },
         ];
+    }
+
+    private function activeLocationPoints(): array
+    {
+        $points = LocationPoint::where('status', 'aktif')->oldest()->get()->map(fn (LocationPoint $location) => [
+            'name' => $location->name,
+            'latitude' => (float) $location->latitude,
+            'longitude' => (float) $location->longitude,
+            'radius' => (int) $location->radius_meters,
+        ])->values()->all();
+
+        return $points ?: [[
+            'name' => $this->namaKantor,
+            'latitude' => $this->officeLat,
+            'longitude' => $this->officeLng,
+            'radius' => $this->radiusMeter,
+        ]];
     }
 }
